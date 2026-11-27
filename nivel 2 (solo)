@@ -1,0 +1,783 @@
+Jugador jugador;
+Bot bot;
+Iglu iglu;
+
+ArrayList<Hielo> hielos;
+ArrayList<Arbusto> arbustos;
+ArrayList<Fuego> fuegos;
+ArrayList<Zanahoria> zanahorias;
+ArrayList<Medalla> medallas;
+
+int zanahoriasAgarradas = 0;
+int medallasAgarradas = 0;
+int nivel = 1;
+
+boolean segundaOleada = false;
+boolean igluAbierto = false;
+boolean juegoTerminado = false;
+
+String mensajeMuerte = "";
+
+void setup() {
+  size(1000, 600);
+  inicializarObjetos();
+  crearMapaArbustos();
+  crearNivel();
+}
+
+void inicializarObjetos() {
+  jugador = new Jugador();
+  bot = new Bot();
+  iglu = new Iglu(width / 2, height / 2);
+  hielos = new ArrayList<Hielo>();
+  arbustos = new ArrayList<Arbusto>();
+  fuegos = new ArrayList<Fuego>();
+  zanahorias = new ArrayList<Zanahoria>();
+  medallas = new ArrayList<Medalla>();
+}
+
+void crearNivel() {
+  zanahoriasAgarradas = 0;
+  medallasAgarradas = 0;
+  segundaOleada = false;
+  igluAbierto = false;
+  zanahorias.clear();
+  medallas.clear();
+  hielos.clear();
+  fuegos.clear();
+  jugador.location.set(width / 2, height - 50);
+  bot.location.set(50, 50);
+  bot.velocidad = 3.2 + (nivel - 1) * 0.4;
+  for (int i = 0; i < 3; i++) {
+    PVector p = posicionSegura();
+    zanahorias.add(new Zanahoria(p.x, p.y));
+  }
+  PVector pm = posicionSegura();
+  medallas.add(new Medalla(pm.x, pm.y));
+}
+
+PVector posicionSegura() {
+  int intentos = 0;
+  while (intentos < 300) {
+    float x = random(80, width - 80);
+    float y = random(80, height - 80);
+    PVector p = new PVector(x, y);
+    boolean choca = false;
+    for (Arbusto a : arbustos) {
+      if (PVector.dist(p, a.location) < 55) {
+        choca = true;
+        break;
+      }
+    }
+    if (PVector.dist(p, iglu.location) < 90) {
+      choca = true;
+    }
+    if (PVector.dist(p, jugador.location) < 70) {
+      choca = true;
+    }
+    if (PVector.dist(p, bot.location) < 70) {
+      choca = true;
+    }
+    for (Zanahoria z : zanahorias) {
+      if (PVector.dist(p, z.location) < 45) {
+        choca = true;
+        break;
+      }
+    }
+    for (Medalla m : medallas) {
+      if (PVector.dist(p, m.location) < 45) {
+        choca = true;
+        break;
+      }
+    }
+    if (!choca) {
+      return p;
+    }
+    intentos++;
+  }
+  return new PVector(100, 100);
+}
+
+void crearMapaArbustos() {
+  arbustos.clear();
+  arbustos.add(new Arbusto(310, 170));
+  arbustos.add(new Arbusto(710, 170));
+  arbustos.add(new Arbusto(310, 470));
+  arbustos.add(new Arbusto(690, 470));
+}
+
+void draw() {
+  if (juegoTerminado) {
+    mostrarPantallaMuerte();
+    return;
+  }
+  background(0);
+  dibujarPuntaje();
+  actualizarJugador();
+  actualizarBot();
+  mostrarMapa();
+  iglu.display(igluAbierto);
+  actualizarColeccionables();
+  verificarIglu();
+  actualizarHielos();
+  actualizarFuegos();
+  if (juegoTerminado) {
+    return;
+  }
+  verificarDerrota();
+}
+
+void actualizarJugador() {
+  jugador.update();
+  jugador.display();
+}
+
+void actualizarBot() {
+  bot.update(jugador.location);
+  bot.display();
+}
+
+void mostrarMapa() {
+  for (Arbusto a : arbustos) {
+    a.display();
+  }
+}
+
+void actualizarColeccionables() {
+  actualizarZanahorias();
+  actualizarMedallas();
+  verificarSegundaOleada();
+  verificarAperturaIglu();
+}
+
+void actualizarZanahorias() {
+  for (int i = zanahorias.size() - 1; i >= 0; i--) {
+    Zanahoria z = zanahorias.get(i);
+    z.display();
+    if (PVector.dist(jugador.location, z.location) < 30) {
+      zanahorias.remove(i);
+      zanahoriasAgarradas++;
+    }
+  }
+}
+
+void actualizarMedallas() {
+  for (int i = medallas.size() - 1; i >= 0; i--) {
+    Medalla m = medallas.get(i);
+    m.display();
+    if (PVector.dist(jugador.location, m.location) < 30) {
+      medallas.remove(i);
+      medallasAgarradas++;
+    }
+  }
+}
+
+void verificarSegundaOleada() {
+  if (!segundaOleada &&
+      zanahoriasAgarradas == 3 &&
+      medallasAgarradas == 1 &&
+      zanahorias.size() == 0 &&
+      medallas.size() == 0) {
+    segundaOleada = true;
+    for (int i = 0; i < 3; i++) {
+      PVector p = posicionSegura();
+      zanahorias.add(new Zanahoria(p.x, p.y));
+    }
+    for (int i = 0; i < 2; i++) {
+      PVector p = posicionSegura();
+      medallas.add(new Medalla(p.x, p.y));
+    }
+  }
+}
+
+void verificarAperturaIglu() {
+  if (!igluAbierto &&
+      zanahoriasAgarradas == 6 &&
+      medallasAgarradas == 3) {
+    igluAbierto = true;
+  }
+}
+
+void verificarIglu() {
+  if (igluAbierto &&
+      PVector.dist(jugador.location, iglu.location) < 40) {
+    nivel++;
+    crearNivel();
+  }
+}
+
+void mostrarPantallaMuerte() {
+  background(150, 0, 0);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(35);
+  text("GAME OVER", width / 2, height / 2 - 35);
+  textSize(25);
+  text(mensajeMuerte, width / 2, height / 2 + 15);
+}
+
+void verificarDerrota() {
+  if (bot.atrapo(jugador.location)) {
+    juegoTerminado = true;
+    mensajeMuerte = "¡TE ATRAPÓ!";
+  }
+}
+
+void actualizarHielos() {
+  for (int i = hielos.size() - 1; i >= 0; i--) {
+    Hielo h = hielos.get(i);
+    h.update();
+    h.display();
+    if (h.derritiendo) {
+      h.tiempoFuego++;
+      if (h.tiempoFuego >= 90) {
+        hielos.remove(i);
+      }
+    }
+  }
+}
+
+void actualizarFuegos() {
+  for (int i = fuegos.size() - 1; i >= 0; i--) {
+    Fuego f = fuegos.get(i);
+    f.update();
+    f.display();
+    if (PVector.dist(f.location, jugador.location) < 28) {
+      juegoTerminado = true;
+      mensajeMuerte = "¡TE QUEMÓ EL FUEGO!";
+      return;
+    }
+    boolean golpeo = false;
+    for (int j = hielos.size() - 1; j >= 0; j--) {
+      Hielo h = hielos.get(j);
+      if (h.chocaCon(f.location)) {
+        h.derritiendo = true;
+        golpeo = true;
+        break;
+      }
+    }
+    if (golpeo) {
+      fuegos.remove(i);
+    } else if (f.fueraDePantalla()) {
+      fuegos.remove(i);
+    }
+  }
+}
+
+void dibujarPuntaje() {
+  fill(255);
+  textAlign(LEFT, TOP);
+  textSize(14);
+  text("NIVEL: " + nivel, 10, 15);
+  text("Zanahorias: " + zanahoriasAgarradas + "/6", 10, 35);
+  text("Medallas: " + medallasAgarradas + "/3", 10, 55);
+  text("ESPACIO: poner hielo | H: deshacer hielo", 10, 75);
+  if (igluAbierto) {
+    fill(255, 255, 0);
+    textAlign(CENTER, TOP);
+    textSize(18);
+    text("¡IGLÚ ABIERTO! ENTRÁ PARA PASAR DE NIVEL", width / 2, 10);
+  }
+  for (int i = 0; i < 3; i++) {
+    float x = width - 35 - i * 40;
+    float y = 25;
+    stroke(255, 200, 0);
+    strokeWeight(4);
+    if (i < medallasAgarradas) {
+      fill(255, 255, 0);
+    } else {
+      fill(60);
+    }
+    ellipse(x, y, 30, 30);
+  }
+}
+
+class Iglu {
+  PVector location;
+  Iglu(float x, float y) {
+    location = new PVector(x, y);
+  }
+  void display(boolean abierto) {
+    noStroke();
+    fill(200, 230, 255);
+    ellipse(location.x, location.y, 110, 90);
+    fill(230, 245, 255);
+    ellipse(location.x, location.y - 10, 80, 60);
+    stroke(160, 200, 240);
+    strokeWeight(1);
+    line(location.x - 40, location.y - 10, location.x + 40, location.y - 10);
+    line(location.x - 25, location.y - 28, location.x + 25, location.y - 28);
+    noStroke();
+    if (abierto) {
+      fill(255, 220, 100);
+    } else {
+      fill(120, 170, 220);
+    }
+    rectMode(CENTER);
+    rect(location.x, location.y + 18, 36, 44, 8);
+    if (abierto) {
+      fill(0);
+      textAlign(CENTER, CENTER);
+      textSize(12);
+      text("ENTRÁ", location.x, location.y + 30);
+    }
+    fill(255);
+    ellipse(location.x - 20, location.y - 25, 18, 8);
+  }
+  boolean chocaConJugador(PVector p) {
+    if (igluAbierto) {
+      return false;
+    }
+    return PVector.dist(p, location) < 55;
+  }
+  boolean chocaConBot(PVector p) {
+    return PVector.dist(p, location) < 55;
+  }
+}
+
+class Zanahoria {
+  PVector location;
+  Zanahoria(float x, float y) {
+    location = new PVector(x, y);
+  }
+  void display() {
+    fill(255, 150, 0);
+    stroke(255, 200, 0);
+    strokeWeight(2);
+    ellipse(location.x, location.y, 20, 20);
+    fill(0, 200, 0);
+    noStroke();
+    triangle(location.x, location.y - 10, location.x - 6, location.y - 18, location.x + 6, location.y - 18);
+  }
+}
+
+class Medalla {
+  PVector location;
+  Medalla(float x, float y) {
+    location = new PVector(x, y);
+  }
+  void display() {
+    stroke(255, 200, 0);
+    strokeWeight(4);
+    fill(255, 255, 0);
+    ellipse(location.x, location.y, 28, 28);
+    fill(255, 150, 0);
+    noStroke();
+    ellipse(location.x, location.y, 10, 10);
+  }
+}
+
+class Jugador {
+  PVector location;
+  PVector velocity;
+  float topspeed;
+  String direccion_jugador;
+  Jugador() {
+    location = new PVector(width / 2, height - 50);
+    velocity = new PVector(0, 0);
+    topspeed = 5;
+    direccion_jugador = "derecha";
+  }
+  void update() {
+    velocity.set(0, 0);
+    if (keyPressed) {
+      if (keyCode == UP) {
+        velocity.y = -topspeed;
+        direccion_jugador = "arriba";
+      }
+      if (keyCode == DOWN) {
+        velocity.y = topspeed;
+        direccion_jugador = "abajo";
+      }
+      if (keyCode == LEFT) {
+        velocity.x = -topspeed;
+        direccion_jugador = "izquierda";
+      }
+      if (keyCode == RIGHT) {
+        velocity.x = topspeed;
+        direccion_jugador = "derecha";
+      }
+    }
+    velocity.limit(topspeed);
+    PVector nuevaPosicion = PVector.add(location, velocity);
+    if (chocaConHielos(nuevaPosicion)) {
+      return;
+    }
+    if (chocaConArbustos(nuevaPosicion)) {
+      return;
+    }
+    if (iglu.chocaConJugador(nuevaPosicion)) {
+      return;
+    }
+    location = nuevaPosicion;
+    controlarLimites();
+  }
+  boolean chocaConHielos(PVector p) {
+    for (Hielo h : hielos) {
+      if (h.chocaConJugador(p)) {
+        float distanciaAhora = PVector.dist(location, h.location);
+        float distanciaDespues = PVector.dist(p, h.location);
+        if (distanciaDespues < distanciaAhora) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  boolean chocaConArbustos(PVector p) {
+    for (Arbusto a : arbustos) {
+      if (a.chocaConJugador(p)) {
+        float distanciaAhora = PVector.dist(location, a.location);
+        float distanciaDespues = PVector.dist(p, a.location);
+        if (distanciaDespues < distanciaAhora) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  void controlarLimites() {
+    if (location.x < 24) location.x = 24;
+    if (location.x > width - 24) location.x = width - 24;
+    if (location.y < 24) location.y = 24;
+    if (location.y > height - 24) location.y = height - 24;
+  }
+  void display() {
+    stroke(255);
+    strokeWeight(2);
+    fill(127);
+    ellipse(location.x, location.y, 48, 48);
+  }
+}
+
+class Bot {
+  PVector location;
+  float velocidad;
+  Hielo hieloBloqueando;
+  boolean disparando;
+  Bot() {
+    location = new PVector(50, 50);
+    velocidad = 3.2;
+    hieloBloqueando = null;
+    disparando = false;
+  }
+  void update(PVector objetivo) {
+    hieloBloqueando = buscarHieloBloqueando(objetivo);
+    if (hieloBloqueando != null) {
+      dispararContraHielo();
+    } else {
+      disparando = false;
+      perseguirJugador(objetivo);
+    }
+  }
+  Hielo buscarHieloBloqueando(PVector objetivo) {
+    for (Hielo h : hielos) {
+      if (!h.derritiendo && h.bloqueaCamino(location, objetivo)) {
+        return h;
+      }
+    }
+    return null;
+  }
+  void dispararContraHielo() {
+    disparando = true;
+    if (frameCount % 10 == 0) {
+      fuegos.add(new Fuego(location.x, location.y, hieloBloqueando.location.copy()));
+    }
+  }
+  void perseguirJugador(PVector objetivo) {
+    PVector direccion = PVector.sub(objetivo, location);
+    if (direccion.mag() > 0) {
+      direccion.normalize();
+      direccion.mult(velocidad);
+      PVector nuevaPosicion = PVector.add(location, direccion);
+      if (puedeMoverse(nuevaPosicion)) {
+        location = nuevaPosicion;
+      } else {
+        esquivarObstaculos(direccion);
+      }
+    }
+  }
+  boolean puedeMoverse(PVector posicion) {
+    if (posicion.x < 20 || posicion.x > width - 20 || posicion.y < 20 || posicion.y > height - 20) {
+      return false;
+    }
+    for (Hielo h : hielos) {
+      if (h.chocaConBot(posicion)) {
+        return false;
+      }
+    }
+    for (Arbusto a : arbustos) {
+      if (a.chocaConBot(posicion)) {
+        return false;
+      }
+    }
+    if (iglu.chocaConBot(posicion)) {
+      return false;
+    }
+    return true;
+  }
+  void esquivarObstaculos(PVector direccion) {
+    PVector lateral1 = new PVector(-direccion.y, direccion.x);
+    lateral1.mult(velocidad * 1.5);
+    PVector prueba1 = PVector.add(location, lateral1);
+    PVector lateral2 = new PVector(direccion.y, -direccion.x);
+    lateral2.mult(velocidad * 1.5);
+    PVector prueba2 = PVector.add(location, lateral2);
+    if (puedeMoverse(prueba1)) {
+      location = prueba1;
+    } else if (puedeMoverse(prueba2)) {
+      location = prueba2;
+    }
+  }
+  boolean atrapo(PVector objetivo) {
+    return PVector.dist(location, objetivo) < 35;
+  }
+  void display() {
+    if (disparando && hieloBloqueando != null) {
+      stroke(255, 120, 0);
+      strokeWeight(3);
+      line(location.x, location.y, hieloBloqueando.location.x, hieloBloqueando.location.y);
+    }
+    if (disparando) {
+      fill(255, 150, 0);
+    } else {
+      fill(255, 0, 0);
+    }
+    stroke(255);
+    strokeWeight(2);
+    ellipse(location.x, location.y, 40, 40);
+  }
+}
+
+class Arbusto {
+  PVector location;
+  float ancho;
+  float alto;
+  Arbusto(float x, float y) {
+    location = new PVector(x, y);
+    ancho = 35;
+    alto = 35;
+  }
+  void display() {
+    noStroke();
+    fill(20, 90, 40);
+    ellipse(location.x, location.y + 4, 38, 32);
+    fill(30, 130, 55);
+    ellipse(location.x - 8, location.y + 2, 22, 20);
+    ellipse(location.x + 8, location.y + 2, 22, 20);
+    ellipse(location.x, location.y - 4, 26, 22);
+    fill(255);
+    ellipse(location.x, location.y - 10, 26, 12);
+    ellipse(location.x - 10, location.y - 4, 10, 8);
+    ellipse(location.x + 10, location.y - 4, 10, 8);
+    fill(180, 255, 180);
+    ellipse(location.x - 6, location.y + 2, 6, 6);
+  }
+  boolean chocaConJugador(PVector p) {
+    return p.x + 24 > location.x - ancho / 2 &&
+           p.x - 24 < location.x + ancho / 2 &&
+           p.y + 24 > location.y - alto / 2 &&
+           p.y - 24 < location.y + alto / 2;
+  }
+  boolean chocaConBot(PVector p) {
+    return p.x + 20 > location.x - ancho / 2 &&
+           p.x - 20 < location.x + ancho / 2 &&
+           p.y + 20 > location.y - alto / 2 &&
+           p.y - 20 < location.y + alto / 2;
+  }
+}
+
+class Hielo {
+  PVector location;
+  float ancho;
+  float alto;
+  boolean derritiendo;
+  int tiempoFuego;
+  Hielo(float x, float y, float vx, float vy, boolean fijo) {
+    location = new PVector(x, y);
+    ancho = 35;
+    alto = 35;
+    derritiendo = false;
+    tiempoFuego = 0;
+  }
+  Hielo(float x, float y, float vx, float vy) {
+    this(x, y, vx, vy, false);
+  }
+  void update() {
+  }
+  void display() {
+    rectMode(CENTER);
+    if (derritiendo) {
+      float escala = map(tiempoFuego, 0, 90, 1, 0.1);
+      float parpadeo = sin(frameCount * 0.5) * 50;
+      fill(150 + parpadeo, 150, 255 - tiempoFuego);
+      stroke(255, 150, 0);
+      strokeWeight(2);
+      rect(location.x, location.y, ancho * escala, alto * escala);
+      noStroke();
+      fill(200, 200, 200, 150);
+      ellipse(location.x + random(-5, 5), location.y - 20 - tiempoFuego * 0.2, 8, 8);
+    } else {
+      fill(150, 220, 255);
+      stroke(255);
+      strokeWeight(2);
+      rect(location.x, location.y, ancho, alto);
+    }
+  }
+  boolean chocaConJugador(PVector p) {
+    return p.x + 24 > location.x - ancho / 2 &&
+           p.x - 24 < location.x + ancho / 2 &&
+           p.y + 24 > location.y - alto / 2 &&
+           p.y - 24 < location.y + alto / 2;
+  }
+  boolean chocaConBot(PVector p) {
+    return p.x + 20 > location.x - ancho / 2 &&
+           p.x - 20 < location.x + ancho / 2 &&
+           p.y + 20 > location.y - alto / 2 &&
+           p.y - 20 < location.y + alto / 2;
+  }
+  boolean chocaCon(PVector p) {
+    return PVector.dist(location, p) < 25;
+  }
+  boolean bloqueaCamino(PVector inicio, PVector fin) {
+    PVector camino = PVector.sub(fin, inicio);
+    float distanciaTotal = camino.mag();
+    if (distanciaTotal == 0) {
+      return false;
+    }
+    camino.normalize();
+    for (float d = 0; d <= distanciaTotal; d += 5) {
+      PVector punto = PVector.add(inicio, PVector.mult(camino, d));
+      if (punto.x > location.x - ancho / 2 - 20 &&
+          punto.x < location.x + ancho / 2 + 20 &&
+          punto.y > location.y - alto / 2 - 20 &&
+          punto.y < location.y + alto / 2 + 20) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+class Fuego {
+  PVector location;
+  PVector velocity;
+  Fuego(float x, float y, PVector objetivo) {
+    location = new PVector(x, y);
+    velocity = PVector.sub(objetivo, location);
+    if (velocity.mag() > 0) {
+      velocity.normalize();
+      velocity.mult(7);
+    }
+  }
+  void update() {
+    location.add(velocity);
+  }
+  void display() {
+    noStroke();
+    fill(255, 255, 0, 120);
+    ellipse(location.x, location.y, 28, 28);
+    fill(255, 120, 0);
+    stroke(255, 0, 0);
+    strokeWeight(2);
+    ellipse(location.x, location.y, 16, 16);
+    fill(255, 255, 150);
+    noStroke();
+    ellipse(location.x - 2, location.y - 2, 6, 6);
+  }
+  boolean fueraDePantalla() {
+    return location.x < 0 || location.x > width || location.y < 0 || location.y > height;
+  }
+}
+
+void keyPressed() {
+  if (key == ' ') {
+    ponerHielo();
+  }
+  if (key == 'h' || key == 'H') {
+    deshacerHielo();
+  }
+}
+
+void ponerHielo() {
+  int cantidad = 4;
+  int separacion = 50;
+  for (int i = 1; i <= cantidad; i++) {
+    crearHieloEnDireccion(i, separacion);
+  }
+}
+
+void crearHieloEnDireccion(int i, int separacion) {
+  float x = jugador.location.x;
+  float y = jugador.location.y;
+  if (jugador.direccion_jugador.equals("arriba")) {
+    y -= i * separacion;
+  }
+  if (jugador.direccion_jugador.equals("abajo")) {
+    y += i * separacion;
+  }
+  if (jugador.direccion_jugador.equals("izquierda")) {
+    x -= i * separacion;
+  }
+  if (jugador.direccion_jugador.equals("derecha")) {
+    x += i * separacion;
+  }
+  if (x < 15 || x > width - 15 || y < 15 || y > height - 15) {
+    return;
+  }
+  PVector nuevaPosicion = new PVector(x, y);
+  for (Hielo h : hielos) {
+    if (PVector.dist(nuevaPosicion, h.location) < 35) {
+      return;
+    }
+  }
+  for (Arbusto a : arbustos) {
+    if (a.chocaConJugador(nuevaPosicion)) {
+      return;
+    }
+  }
+  if (PVector.dist(nuevaPosicion, iglu.location) < 65) {
+    return;
+  }
+  hielos.add(new Hielo(x, y, 0, 0, false));
+}
+
+void deshacerHielo() {
+  int cantidad = 4;
+  int separacion = 50;
+  boolean borroAlgo = false;
+  for (int i = 1; i <= cantidad; i++) {
+    float x = jugador.location.x;
+    float y = jugador.location.y;
+    if (jugador.direccion_jugador.equals("arriba")) {
+      y -= i * separacion;
+    }
+    if (jugador.direccion_jugador.equals("abajo")) {
+      y += i * separacion;
+    }
+    if (jugador.direccion_jugador.equals("izquierda")) {
+      x -= i * separacion;
+    }
+    if (jugador.direccion_jugador.equals("derecha")) {
+      x += i * separacion;
+    }
+    if (eliminarHieloEnPosicion(x, y)) {
+      borroAlgo = true;
+    }
+  }
+  if (!borroAlgo && hielos.size() > 0) {
+    hielos.remove(hielos.size() - 1);
+  }
+}
+
+boolean eliminarHieloEnPosicion(float x, float y) {
+  boolean borro = false;
+  for (int j = hielos.size() - 1; j >= 0; j--) {
+    Hielo h = hielos.get(j);
+    if (PVector.dist(new PVector(x, y), h.location) < 25) {
+      hielos.remove(j);
+      borro = true;
+    }
+  }
+  return borro;
+}
